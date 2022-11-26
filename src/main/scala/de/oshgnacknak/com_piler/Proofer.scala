@@ -46,13 +46,31 @@ object Proofer {
       case Compound(left, right) =>
         val (p1, state1, sigma1) = proofRec(left, state, sigma)
         val (p2, state2, sigma2) = proofRec(right, state1+1, sigma1)
-        val sigmaTex = "\\sigma" + "'".repeat(state)
         val sigmaNew = "\\sigma" + "'".repeat(state2)
         val p = s"$p1\n$p2\n" +
-        s"\\infer[left label={$$r;$$}]2{< ${LaTeXifyer.toLaTeX(commando)}, $sigmaTex > \\to $sigmaNew'}"
+          s"\\infer[left label={$$r;$$}]2{< ${LaTeXifyer.toLaTeX(commando)}, $sigmaTex > \\to $sigmaNew'}"
         (p, state2, sigma2)
-      case If(cond, thenBody, elseBody) => ???
-      case While(cond, body) => ???
+      case If(cond, thenBody, elseBody) =>
+        val res = evalAsBool(cond, sigma)
+        val t = res.toString.head
+        val pc = proofAsBool(cond, sigma)
+        val (pb, state1, sigma1) = proofRec(if (res) thenBody else elseBody, state, sigma)
+        val sigmaNew = "\\sigma" + "'".repeat(state1)
+        val p = s"\\infer[left label={$$rif$t$$}]2{< ${LaTeXifyer.toLaTeX(commando)}, $sigmaTex > \\to $sigmaNew'}"
+        (s"$pc\n$pb\n$p", state1, sigma1)
+      case wh @ While(cond, body) =>
+        val res = evalAsBool(cond, sigma)
+        val pc = proofAsBool(cond, sigma)
+        if (!res) {
+          val p = s"\\infer[left label={$$rwhf$$}]1{< ${LaTeXifyer.toLaTeX(commando)}, $sigmaTex > \\to $sigmaTex}"
+          (s"$pc\n$p", state, sigma)
+        } else {
+          val (pb, state1, sigma1) = proofRec(body, state, sigma)
+          val (pn, state2, sigma2) = proofRec(wh, state1, sigma1)
+          val sigmaNew = "\\sigma" + "'".repeat(state2)
+          val p = s"\\infer[left label={$$rwht$$}]3{< ${LaTeXifyer.toLaTeX(commando)}, $sigmaTex > \\to $sigmaNew'}"
+          (s"$pc\n$pb\n$pn\n$p", state2, sigma2)
+        }
     }
   }
 
