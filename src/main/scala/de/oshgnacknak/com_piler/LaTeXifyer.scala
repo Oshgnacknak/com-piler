@@ -16,26 +16,16 @@ case object LaTeXifyer {
     case Mul(left, right) => s"(${toLaTeX(left)}~\\odot~${toLaTeX(right)})"
   }
 
-  def toLaTeX(commando: Commando, indent: Int = 0): String = {
-    val beginOfLine = "&" + "~".repeat(indent)
-    val endOfLine = "\\\\"
-
+  def toLaTeX(commando: Commando): String = {
     commando match {
-      case Skip() => beginOfLine + "skip"
-      case Assign(name, expr) => s"$beginOfLine$name := ${toLaTeX(expr)}"
+      case Skip() => "skip"
+      case Assign(name, expr) => s"$name := ${toLaTeX(expr)}"
       case Compound(left, right) =>
-        s"""${toLaTeX(left, indent)}; $endOfLine
-           |${toLaTeX(right, indent)}""".stripMargin
+        s"${toLaTeX(left)};~${toLaTeX(right)}"
       case If(cond, thenBody, elseBody) =>
-        s"""$beginOfLine\\code{if}~${toLaTeX(cond)}~\\code{then} $endOfLine
-           |${toLaTeX(thenBody, indent + 4)} $endOfLine
-           |$beginOfLine\\code{else} $endOfLine
-           |${toLaTeX(elseBody, indent + 4)} $endOfLine
-           |$beginOfLine\\code{fi}""".stripMargin
+        s"\\code{if}~${toLaTeX(cond)}~\\code{then}~${toLaTeX(thenBody)}~\\code{else}~${toLaTeX(elseBody)}~\\code{fi}"
       case While(cond, body) =>
-        s"""$beginOfLine\\code{while}~${toLaTeX(cond)}~\\code{do} $endOfLine
-           |${toLaTeX(body, indent + 4)} $endOfLine
-           |$beginOfLine\\code{od}""".stripMargin
+        s"\\code{while}~${toLaTeX(cond)}~\\code{do}~${toLaTeX(body)}~\\code{od}"
     }
   }
 }

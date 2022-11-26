@@ -1,56 +1,85 @@
 package de.oshgnacknak.com_piler
 
-class Proofer(sigma: String => Int) {
+object Proofer {
 
-  def evalAsInt(expr: Expression): Int = {
+  def evalAsInt(expr: Expression, sigma: Map[String, Int]): Int = {
     TypeChecker.expect(Type.Integer, expr)
 
     expr match {
       case ALit(value) => value
       case Var(name) => sigma(name)
-      case Add(left, right) => evalAsInt(left) + evalAsInt(right)
-      case Sub(left, right) => evalAsInt(left) - evalAsInt(right)
-      case Mul(left, right) => evalAsInt(left) * evalAsInt(right)
+      case Add(left, right) => evalAsInt(left, sigma) + evalAsInt(right, sigma)
+      case Sub(left, right) => evalAsInt(left, sigma) - evalAsInt(right, sigma)
+      case Mul(left, right) => evalAsInt(left, sigma) * evalAsInt(right, sigma)
     }
   }
 
-  def evalAsBool(expr: Expression): Boolean = {
+  def evalAsBool(expr: Expression, sigma: Map[String, Int]): Boolean = {
     TypeChecker.expect(Type.Boolean, expr)
 
     expr match {
       case BLit(value) => value
-      case Equals(left, right) => evalAsInt(left) == evalAsInt(right)
-      case Leq(left, right) => evalAsInt(left) <= evalAsInt(right)
-      case Not(expr) => !evalAsBool(expr)
-      case And(left, right) => evalAsBool(left) && evalAsBool(right)
-      case Or(left, right) => evalAsBool(left) || evalAsBool(right)
+      case Equals(left, right) => evalAsInt(left, sigma) == evalAsInt(right, sigma)
+      case Leq(left, right) => evalAsInt(left, sigma) <= evalAsInt(right, sigma)
+      case Not(expr) => !evalAsBool(expr, sigma)
+      case And(left, right) => evalAsBool(left, sigma) && evalAsBool(right, sigma)
+      case Or(left, right) => evalAsBool(left, sigma) || evalAsBool(right, sigma)
     }
   }
 
-  def proofAsInt(expr: Expression): String = {
-    val res = evalAsInt(expr)
+  def proof(c: Commando, sigma: Map[String, Int]): String = {
+    val (p, _, _) = proofRec(c, 0, sigma)
+    p
+  }
+
+  def proofRec(commando: Commando, state: Int, sigma: Map[String, Int]): (String, Int, Map[String, Int]) = {
+    val sigmaTex = "\\sigma" + "'".repeat(state)
+    val inner = s"< ${LaTeXifyer.toLaTeX(commando)}, $sigmaTex > \\to $sigmaTex'"
+
+    commando match {
+      case Skip() => (s"\\infer[left label={$$rsk$$}]0{$inner}", state, sigma)
+      case Assign(name, expr) =>
+        val r = evalAsInt(expr, sigma)
+        val p = proofAsInt(expr, sigma) + "\n" +
+          s"\\infer[left label={$$r:=$$}]1[{$$$sigmaTex' = $sigmaTex[$name \\backslash $r]$$}]{$inner}"
+        (p, state, sigma.updated(name, r))
+      case Compound(left, right) =>
+        val (p1, state1, sigma1) = proofRec(left, state, sigma)
+        val (p2, state2, sigma2) = proofRec(right, state1+1, sigma1)
+        val sigmaTex = "\\sigma" + "'".repeat(state)
+        val sigmaNew = "\\sigma" + "'".repeat(state2)
+        val p = s"$p1\n$p2\n" +
+        s"\\infer[left label={$$r;$$}]2{< ${LaTeXifyer.toLaTeX(commando)}, $sigmaTex > \\to $sigmaNew'}"
+        (p, state2, sigma2)
+      case If(cond, thenBody, elseBody) => ???
+      case While(cond, body) => ???
+    }
+  }
+
+  def proofAsInt(expr: Expression, sigma: Map[String, Int]): String = {
+    val res = evalAsInt(expr, sigma)
     val inner = s"< ${LaTeXifyer.toLaTeX(expr)}, \\sigma > \\Downarrow $res"
 
     expr match {
       case ALit(_) => s"\\infer[left label={$$rNum$$}]0{$inner}"
       case Var(name) => s"\\infer[left label={$$rVar$$}]0[$$\\sigma($name) = $res$$]{$inner}"
       case Add(left, right) =>
-        proofAsInt(left) + "\n" +
-        proofAsInt(right) + "\n" +
-        s"\\infer[left label={$$r\\oplus$$}]2[$res = ${evalAsInt(left)} + ${evalAsInt(right)}]{$inner}"
+        proofAsInt(left, sigma) + "\n" +
+          proofAsInt(right, sigma) + "\n" +
+          s"\\infer[left label={$$r\\oplus$$}]2[$res = ${evalAsInt(left, sigma)} + ${evalAsInt(right, sigma)}]{$inner}"
       case Sub(left, right) =>
-        proofAsInt(left) + "\n" +
-        proofAsInt(right) + "\n" +
-        s"\\infer[left label={$$r\\ominus$$}]2[$res = ${evalAsInt(left)} - ${evalAsInt(right)}]{$inner}"
+        proofAsInt(left, sigma) + "\n" +
+          proofAsInt(right, sigma) + "\n" +
+          s"\\infer[left label={$$r\\ominus$$}]2[$res = ${evalAsInt(left, sigma)} - ${evalAsInt(right, sigma)}]{$inner}"
       case Mul(left, right) =>
-        proofAsInt(left) + "\n" +
-        proofAsInt(right) + "\n" +
-        s"\\infer[left label={$$r\\odot$$}]2[$res = ${evalAsInt(left)} * ${evalAsInt(right)}]{$inner}"
+        proofAsInt(left, sigma) + "\n" +
+          proofAsInt(right, sigma) + "\n" +
+          s"\\infer[left label={$$r\\odot$$}]2[$res = ${evalAsInt(left, sigma)} * ${evalAsInt(right, sigma)}]{$inner}"
     }
   }
 
-  def proofAsBool(expr: Expression): String = {
-    val res = evalAsBool(expr)
+  def proofAsBool(expr: Expression, sigma: Map[String, Int]): String = {
+    val res = evalAsBool(expr, sigma)
     val inner = s"< ${LaTeXifyer.toLaTeX(expr)}, \\sigma > \\Downarrow $res"
     val t = res.toString.head
 
@@ -58,39 +87,39 @@ class Proofer(sigma: String => Int) {
       case BLit(_) => s"\\infer[left label={$$r$res$$}]0{$inner}"
       case Equals(left, right) =>
         val neq = if (res) "" else "\\lnot"
-        proofAsInt(left) + "\n" +
-        proofAsInt(right) + "\n" +
-        s"\\infer[left label={$$req$t$$}]2[$$$neq ${evalAsInt(left)} = ${evalAsInt(right)}$$]{$inner}"
+        proofAsInt(left, sigma) + "\n" +
+          proofAsInt(right, sigma) + "\n" +
+          s"\\infer[left label={$$req$t$$}]2[$$$neq ${evalAsInt(left, sigma)} = ${evalAsInt(right, sigma)}$$]{$inner}"
       case Leq(left, right) =>
         val cmp = if (res) "\\leq" else ">"
-        proofAsInt(left) + "\n" +
-        proofAsInt(right) + "\n" +
-        s"\\infer[left label={$$rleq$t$$}]2[$$${evalAsInt(left)} $cmp ${evalAsInt(right)}$$]{$inner}"
+        proofAsInt(left, sigma) + "\n" +
+          proofAsInt(right, sigma) + "\n" +
+          s"\\infer[left label={$$rleq$t$$}]2[$$${evalAsInt(left, sigma)} $cmp ${evalAsInt(right, sigma)}$$]{$inner}"
       case Not(expr) =>
-        proofAsBool(expr) + "\n" +
-        s"\\infer[left label={$$rnot$t$$}]1{$inner}"
+        proofAsBool(expr, sigma) + "\n" +
+          s"\\infer[left label={$$rnot$t$$}]1{$inner}"
       case And(left, right) =>
         if (res)
-          proofAsBool(left) + "\n" +
-          proofAsBool(right) + "\n" +
-          s"\\infer[left label={$$randt$$}]2{$inner}"
-        else if (!evalAsBool(left))
-          proofAsBool(left) + "\n" +
-          s"\\infer[left label={$$randf1$$}]1{$inner}"
+          proofAsBool(left, sigma) + "\n" +
+            proofAsBool(right, sigma) + "\n" +
+            s"\\infer[left label={$$randt$$}]2{$inner}"
+        else if (!evalAsBool(left, sigma))
+          proofAsBool(left, sigma) + "\n" +
+            s"\\infer[left label={$$randf1$$}]1{$inner}"
         else
-          proofAsBool(right) + "\n" +
-          s"\\infer[left label={$$randf2$$}]1{$inner}"
+          proofAsBool(right, sigma) + "\n" +
+            s"\\infer[left label={$$randf2$$}]1{$inner}"
       case Or(left, right) =>
         if (!res)
-          proofAsBool(left) + "\n" +
-          proofAsBool(right) + "\n" +
-          s"\\infer[left label={$$rorf$$}]2{$inner}"
-        else if (evalAsBool(left))
-          proofAsBool(left) + "\n" +
-          s"\\infer[left label={$$rort1$$}]1{$inner}"
+          proofAsBool(left, sigma) + "\n" +
+            proofAsBool(right, sigma) + "\n" +
+            s"\\infer[left label={$$rorf$$}]2{$inner}"
+        else if (evalAsBool(left, sigma))
+          proofAsBool(left, sigma) + "\n" +
+            s"\\infer[left label={$$rort1$$}]1{$inner}"
         else
-          proofAsBool(right) + "\n" +
-          s"\\infer[left label={$$rort2$$}]1{$inner}"
+          proofAsBool(right, sigma) + "\n" +
+            s"\\infer[left label={$$rort2$$}]1{$inner}"
     }
   }
 }
