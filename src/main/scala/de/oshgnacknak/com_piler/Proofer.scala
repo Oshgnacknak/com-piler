@@ -84,15 +84,15 @@ object Proofer {
       case Add(left, right) =>
         proofAsInt(left, sigma) + "\n" +
           proofAsInt(right, sigma) + "\n" +
-          s"\\infer[left label={$$r\\oplus$$}]2[$res = ${evalAsInt(left, sigma)} + ${evalAsInt(right, sigma)}]{$inner}"
+          s"\\infer[left label={$$r\\oplus$$}]2[$$$res = (${evalAsInt(left, sigma)}) + (${evalAsInt(right, sigma)})$$]{$inner}"
       case Sub(left, right) =>
         proofAsInt(left, sigma) + "\n" +
           proofAsInt(right, sigma) + "\n" +
-          s"\\infer[left label={$$r\\ominus$$}]2[$res = ${evalAsInt(left, sigma)} - ${evalAsInt(right, sigma)}]{$inner}"
+          s"\\infer[left label={$$r\\ominus$$}]2[$$$res = (${evalAsInt(left, sigma)}) - (${evalAsInt(right, sigma)})$$]{$inner}"
       case Mul(left, right) =>
         proofAsInt(left, sigma) + "\n" +
           proofAsInt(right, sigma) + "\n" +
-          s"\\infer[left label={$$r\\odot$$}]2[$res = ${evalAsInt(left, sigma)} * ${evalAsInt(right, sigma)}]{$inner}"
+          s"\\infer[left label={$$r\\odot$$}]2[$$$res = (${evalAsInt(left, sigma)}) \\cdot (${evalAsInt(right, sigma)})$$]{$inner}"
     }
   }
 

@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 object ComPiler {
 
   private val sigma = Map[String, Int](
-    "x" -> 5
+    "x" -> 1, "y" -> -1
   )
 
   def main2(args: Array[String]): Unit = {
